@@ -1,7 +1,7 @@
 # CSV-copier
 
 ## Requirement Installation
-code pip install openpyxl
+`pip install openpyxl`
 
 ## Usage
 Specify the input and output worksheet path and sheet name.
