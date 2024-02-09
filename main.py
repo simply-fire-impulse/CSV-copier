@@ -1,41 +1,35 @@
-from openpyxl import load_workbook
-from openpyxl import Workbook
-from openpyxl.styles import Font
+import gspread
 
-def copy_sheet_with_format(input_file, input_sheet_name, output_file, output_sheet_name):
-    # Load the input workbook
-    input_wb = load_workbook(input_file)
-    input_ws = input_wb[input_sheet_name]
-    
-    # Create a new workbook and worksheet
-    output_wb = Workbook()
-    output_ws = output_wb.active
-    output_ws.title = output_sheet_name
-    
-    # Copy values and formats
-    for row in input_ws.iter_rows(values_only=True):
-        output_ws.append(row)
-    
-    # Copy cell styles
-    for row in input_ws.iter_rows(min_row=1, max_row=input_ws.max_row, min_col=1, max_col=input_ws.max_column):
-        for cell in row:
-            output_ws[cell.coordinate].style = cell.style
-    
-    # Copy merged cells
-    for merged_cell_range in input_ws.merged_cells.ranges:
-        print(merged_cell_range.coord)
-        output_ws.merge_cells(str(merged_cell_range.coord))
-    
-    output_ws.font = Font(size=10)
-    # Save the output workbook
-    output_wb.save(output_file)
-    print("Sheet copied successfully with format and merged cells.")
+gc = gspread.service_account()
 
-# Example usage:
-input_file = "./resources/ws1.xlsx"
-input_sheet_name = "Sheet1"
-output_file = "./resources/ws2.xlsx"
-output_sheet_name = "Sheet1"
+sh_src = gc.open('CSV-Formatting')
+sh_dst = gc.open('CSV-Formatting-1')
 
-copy_sheet_with_format(input_file, input_sheet_name, output_file, output_sheet_name)
+ws_src = sh_src.get_worksheet(0)
+ws_dst = sh_dst.get_worksheet(0)
 
+# src sheet meta data
+sh_src_md = sh_src.fetch_sheet_metadata()
+
+data = ws_src.get_all_values()
+
+# Clear existing data from the destination worksheet (optional)
+ws_dst.clear()
+
+# Update the destination worksheet with the retrieved values
+ws_dst.update(data,'A1')
+
+# extracting the data for merged cells from the sheet metadata
+merged_cells = sh_src_md['sheets'][0]['merges']
+
+merged_cell_ranges = []
+for merged_cell in merged_cells:
+    # Convert grid range to A1 notation
+    start_cell = gspread.utils.rowcol_to_a1(merged_cell['startRowIndex'] + 1, merged_cell['startColumnIndex'] + 1)
+    end_cell = gspread.utils.rowcol_to_a1(merged_cell['endRowIndex'], merged_cell['endColumnIndex'])
+    # Get value of the top-left cell of the merged range
+    str = f"{start_cell}:{end_cell}"
+    merged_cell_ranges.append(str)
+
+for i in range(len(merged_cell_ranges)):
+    ws_dst.merge_cells(merged_cell_ranges[i])
